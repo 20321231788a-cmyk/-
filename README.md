@@ -11,9 +11,17 @@
 - 投放计划：生成 DOU+、巨量本地推、线索广告计划草稿，人工确认后再去官方平台执行。
 - 直播助手：评论分类、自动回复建议、讲车脚本和销售承接话术。
 - AI 工作台：导出账号快照给 Codex，导入后可转成下一轮投流计划。
-- 智能体参与计划：分为策划智能体、执行智能体、验收智能体。
+- 智能体参与计划：分为用户智能体、策划智能体、执行智能体、验收智能体。
+- 数据导入：支持表格快速导入和 AI/Codex 数据包导入两种模式。
+- AI 编程工具连接：提供 CLI 桥接脚本，并预留 MCP 资源和工具设计。
 
 ## 智能体分工
+
+### 用户智能体
+
+- 输入：用户身份、当前页面、数据缺口、待办任务、最近一次操作。
+- 输出：新手引导、缺数据提醒、下一步建议、风险提示、可复制指令。
+- 验证：不替用户做高风险确认，优先给最短可执行路径。
 
 ### 策划智能体
 
@@ -45,6 +53,28 @@ npm run dev
 ```powershell
 npm run build
 ```
+
+## CLI / MCP 连接
+
+生成给 Codex 或其他 AI 编程工具读取的数据包：
+
+```powershell
+npm run bridge -- sample
+```
+
+打印可复制提示词：
+
+```powershell
+npm run bridge -- prompt
+```
+
+校验 AI 生成的策略结果：
+
+```powershell
+npm run bridge -- validate data/inbox/strategy_result.json
+```
+
+更多 MCP 资源和工具规划见 [MCP_CONNECT.md](./MCP_CONNECT.md)。
 
 ## 边界
 

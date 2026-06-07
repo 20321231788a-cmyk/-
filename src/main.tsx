@@ -35,6 +35,7 @@ type PageKey =
   | "videos"
   | "live"
   | "leads"
+  | "imports"
   | "campaigns"
   | "assistant"
   | "agents"
@@ -196,6 +197,7 @@ const nav = [
   { key: "videos", label: "视频分析", icon: PlayCircle },
   { key: "live", label: "直播场次", icon: Radio },
   { key: "leads", label: "线索跟进", icon: UserRoundCheck },
+  { key: "imports", label: "数据导入", icon: FileUp },
   { key: "campaigns", label: "投放计划", icon: Megaphone },
   { key: "assistant", label: "直播助手", icon: Headphones },
   { key: "agents", label: "智能体计划", icon: UsersRound },
@@ -244,8 +246,8 @@ function App() {
 
   const uploadCsv = async (file: File | null) => {
     if (!file) return;
-    const text = await file.text();
-    const rows = text.split(/\r?\n/).filter(Boolean).length - 1;
+    const text = file.name.endsWith(".xlsx") ? "" : await file.text();
+    const rows = text ? text.split(/\r?\n/).filter(Boolean).length - 1 : 1;
     setImportedRows(Math.max(rows, 0));
   };
 
@@ -311,10 +313,10 @@ function App() {
             <h1>{nav.find((item) => item.key === page)?.label}</h1>
           </div>
           <div className="top-actions">
-            <label className="upload-button" title="导入 CSV 数据">
+            <label className="upload-button" title="导入 CSV、XLSX 或 JSON 数据">
               <FileUp size={17} />
               <span>{importedRows ? `已导入 ${importedRows} 行` : "导入数据"}</span>
-              <input type="file" accept=".csv" onChange={(event) => uploadCsv(event.target.files?.[0] ?? null)} />
+              <input type="file" accept=".csv,.xlsx,.json" onChange={(event) => uploadCsv(event.target.files?.[0] ?? null)} />
             </label>
             <button className="primary-button" onClick={exportStrategyPack}>
               <FileDown size={17} />
@@ -327,6 +329,7 @@ function App() {
         {page === "videos" && <VideoAnalysis />}
         {page === "live" && <LivePage />}
         {page === "leads" && <LeadsPage />}
+        {page === "imports" && <ImportsPage importedRows={importedRows} uploadCsv={uploadCsv} />}
         {page === "campaigns" && <CampaignsPage />}
         {page === "assistant" && <AssistantPage />}
         {page === "agents" && <AgentsPage />}
@@ -524,6 +527,75 @@ function LeadsPage() {
   );
 }
 
+function ImportsPage({
+  importedRows,
+  uploadCsv
+}: {
+  importedRows: number;
+  uploadCsv: (file: File | null) => Promise<void>;
+}) {
+  const modes = [
+    {
+      title: "模式一：表格快速导入",
+      subtitle: "适合投手每天从抖音、巨量、本地推后台导出 CSV/XLSX 后直接上传。",
+      formats: "视频数据、直播数据、广告报表、线索表、到店成交表",
+      action: "拖入或选择文件，系统做字段映射、预览和错误提示"
+    },
+    {
+      title: "模式二：AI/Codex 数据包导入",
+      subtitle: "适合把 Codex、Cursor、Claude Code 等工具生成的 JSON 结果导回系统。",
+      formats: "account_snapshot.json、strategy_result.json、campaign_drafts.json",
+      action: "复制 JSON 或通过 CLI/MCP 写入 data/inbox，系统转成计划草稿"
+    }
+  ];
+
+  return (
+    <section className="page-grid">
+      <section className="panel">
+        <PanelTitle icon={FileUp} title="两种数据导入模式" action="表格 + AI 数据包" />
+        <div className="import-grid">
+          {modes.map((mode) => (
+            <article className="import-card" key={mode.title}>
+              <h3>{mode.title}</h3>
+              <p>{mode.subtitle}</p>
+              <dl>
+                <div>
+                  <dt>支持内容</dt>
+                  <dd>{mode.formats}</dd>
+                </div>
+                <div>
+                  <dt>使用方式</dt>
+                  <dd>{mode.action}</dd>
+                </div>
+              </dl>
+            </article>
+          ))}
+        </div>
+      </section>
+      <section className="split">
+        <section className="panel large">
+          <PanelTitle icon={Database} title="导入向导" action={importedRows ? `最近导入 ${importedRows} 行` : "等待数据"} />
+          <div className="import-steps">
+            <Step icon={FileUp} title="选择数据类型" text="视频、直播、广告、线索、成交或 AI 策略结果。" />
+            <Step icon={Search} title="字段预览映射" text="自动识别常见列名，未知字段进入待确认区。" />
+            <Step icon={CheckCircle2} title="生成可用数据" text="导入成功后刷新看板、计划草稿和验收指标。" />
+          </div>
+        </section>
+        <section className="panel">
+          <PanelTitle icon={ClipboardList} title="快速上传" action="CSV / XLSX / JSON" />
+          <label className="drop-zone">
+            <FileUp size={26} />
+            <strong>选择导入文件</strong>
+            <span>支持表格和 AI 数据包</span>
+            <input type="file" accept=".csv,.xlsx,.json" onChange={(event) => uploadCsv(event.target.files?.[0] ?? null)} />
+          </label>
+          <p className="helper-copy">第一版先完成文件接入和状态反馈，后续由 CLI/MCP 自动把文件放入 inbox 目录。</p>
+        </section>
+      </section>
+    </section>
+  );
+}
+
 function CampaignsPage() {
   const plans = [
     ["DOU+ 测素材", "V1028 事故车避坑", "300 元", "主页浏览", "关注率高于 0.25% 加投"],
@@ -594,6 +666,15 @@ function AssistantPage() {
 
 function AgentsPage() {
   const agents = [
+    {
+      name: "用户智能体",
+      role: "把复杂投放流程变成用户能理解的下一步",
+      owner: "老板 / 投手 / 主播",
+      inputs: "用户身份、当前页面、数据缺口、待办任务、最近一次操作",
+      outputs: "新手引导、缺数据提醒、下一步建议、风险提示、可复制指令",
+      cadence: "用户进入页面时提示，导入失败或计划缺项时主动解释",
+      checks: ["不替用户做高风险确认", "说明每个建议的业务原因", "优先给最短可执行路径"]
+    },
     {
       name: "策划智能体",
       role: "把账号数据转成可执行策略",
@@ -675,25 +756,44 @@ function AgentsPage() {
 
 function AiPage({ exportStrategyPack }: { exportStrategyPack: () => void }) {
   return (
-    <section className="split">
-      <section className="panel large">
-        <PanelTitle icon={Bot} title="Codex 策略工作台" action="数据包交接" />
-        <div className="ai-flow">
-          <Step icon={Database} title="汇总账号数据" text="视频、直播、广告、线索、到店和成交数据统一成账号快照。" />
-          <Step icon={FileDown} title="导出给 Codex" text="生成 account_snapshot.json，用于策略分析和计划生成。" />
-          <Step icon={Sparkles} title="生成策略" text="Codex 输出投流计划、直播话术、内容选题和复盘结论。" />
-          <Step icon={FileUp} title="导入计划" text="把策略结果转为可编辑的投放计划草稿。" />
-        </div>
+    <section className="page-grid">
+      <section className="split">
+        <section className="panel large">
+          <PanelTitle icon={Bot} title="Codex 策略工作台" action="数据包交接" />
+          <div className="ai-flow">
+            <Step icon={Database} title="汇总账号数据" text="视频、直播、广告、线索、到店和成交数据统一成账号快照。" />
+            <Step icon={FileDown} title="导出给 Codex" text="生成 account_snapshot.json，用于策略分析和计划生成。" />
+            <Step icon={Sparkles} title="生成策略" text="Codex 输出投流计划、直播话术、内容选题和复盘结论。" />
+            <Step icon={FileUp} title="导入计划" text="把策略结果转为可编辑的投放计划草稿。" />
+          </div>
+        </section>
+        <section className="panel">
+          <PanelTitle icon={Search} title="策略提示词" action="可复制" />
+          <p className="prompt-box">
+            请基于账号快照生成二手车直播投流计划，包含 DOU+ 测试、本地推直播间引流、线索广告、人群地域、预算、加投停投规则、直播话术和下一周内容选题。
+          </p>
+          <button className="primary-button full" onClick={exportStrategyPack}>
+            <FileDown size={17} />
+            导出账号快照
+          </button>
+        </section>
       </section>
       <section className="panel">
-        <PanelTitle icon={Search} title="策略提示词" action="可复制" />
-        <p className="prompt-box">
-          请基于账号快照生成二手车直播投流计划，包含 DOU+ 测试、本地推直播间引流、线索广告、人群地域、预算、加投停投规则、直播话术和下一周内容选题。
-        </p>
-        <button className="primary-button full" onClick={exportStrategyPack}>
-          <FileDown size={17} />
-          导出账号快照
-        </button>
+        <PanelTitle icon={ClipboardList} title="AI 编程工具连接" action="CLI + MCP 两条路" />
+        <div className="connector-grid">
+          <article className="connector-card">
+            <h3>CLI 形式</h3>
+            <p>本地命令生成样例数据包、校验 Codex 输出，并把策略结果放入 data/inbox。</p>
+            <code>npm run bridge -- sample</code>
+            <code>npm run bridge -- validate data/inbox/strategy_result.json</code>
+          </article>
+          <article className="connector-card">
+            <h3>MCP 形式</h3>
+            <p>预留 MCP server 能力，让 Codex、Cursor、Claude Code 直接读取账号快照和写入计划草稿。</p>
+            <code>tools: get_account_snapshot, import_strategy_result</code>
+            <code>resource: douyin-live://workspace</code>
+          </article>
+        </div>
       </section>
     </section>
   );
